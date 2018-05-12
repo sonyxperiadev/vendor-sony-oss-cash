@@ -52,6 +52,15 @@ struct cash_focus_params {
 	double *terms;
 };
 
+struct cash_configuration {
+	int32_t tof_min;
+	int32_t tof_max;
+	int32_t tof_hyst;
+	int32_t tof_max_runs;
+	int32_t polyreg_degree;
+	int32_t polyreg_extra;
+};
+
 struct cash_focus_state {
 	int16_t far_max;
 	int16_t near_max;
@@ -64,7 +73,8 @@ struct cash_params {
 };
 
 int parse_cash_xml_data(char* filepath, char* node, 
-			struct cash_focus_params *cash_focus);
+			struct cash_focus_params *cash_focus,
+			struct cash_configuration *cash_config);
 
 #define REPLY_FOCUS_CUSTOM_LEN		7
 #define REPLY_SHORT_FOCUS_LEN		2

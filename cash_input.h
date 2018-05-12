@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#define TOF_DEFAULT_MIN_MM			0
+#define TOF_DEFAULT_MAX_MM			1030
 #define TOF_STABILIZATION_DEF_RUNS		4
 #define TOF_STABILIZATION_WAIT_MS		10
 #define TOF_STABILIZATION_HYST_MM		7

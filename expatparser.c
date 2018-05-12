@@ -45,6 +45,7 @@ static char* main_node;
 static char millimeters[255];
 static char focus_steps[255];
 static char tof_min[50], tof_max[50], tof_hyst[4], tof_max_runs[4];
+static char polyreg_degree[3], polyreg_extra[3];
 
 struct cash_focus_params focus_params;
 
@@ -61,6 +62,15 @@ void parseElm(const char *elm, const char **attr)
 		}
 	}
 
+	if (strcmp("polyreg_tuning", elm) == 0) {
+		for (i = 0; attr[i]; i += 2) {
+			if (strcmp("degree", attr[i]) == 0)
+				strcpy(polyreg_degree, attr[i+1]);
+			else if (strcmp("extra", attr[i]) == 0)
+				strcpy(polyreg_extra, attr[i+1]);
+		}
+	}
+
 	if (strcmp("ranging_limits", elm) == 0) {
 		for (i = 0; attr[i]; i += 2) {
 			if (strcmp("min_range", attr[i]) == 0)
@@ -73,9 +83,9 @@ void parseElm(const char *elm, const char **attr)
 	if (strcmp("ranging_params", elm) == 0) {
 		for (i = 0; attr[i]; i += 2) {
 			if (strcmp("hysteresis", attr[i]) == 0)
-				strcpy(millimeters, attr[i+1]);
+				strcpy(tof_hyst, attr[i+1]);
 			else if (strcmp("max_runs", attr[i]) == 0)
-				strcpy(focus_steps, attr[i+1]);
+				strcpy(tof_max_runs, attr[i+1]);
 		}
 	}
 
@@ -114,9 +124,10 @@ void str_handler(void *data, const char *str, int len)
 }
 
 int parse_cash_xml_data(char* filepath, char* node, 
-			struct cash_focus_params *cash_focus)
+			struct cash_focus_params *cash_focus,
+			struct cash_configuration *cash_config)
 {
-	int ret, fd, count, sz;
+	int ret, fd, count, sz, tmp;
 	char *buf, *mend, *fend;
 	struct stat st;
 	XML_Parser pa;
@@ -193,7 +204,6 @@ int parse_cash_xml_data(char* filepath, char* node,
 
 		/* We've reached the end, farewell! */
 		if (tbl_entry->input_val == 0 || tbl_entry->focus_step == 0) {
-			//focus_params.num_steps--;
 			break;
 		}
 	} while (focus_params.num_steps < CASH_MAX_FOCTBL_ENTRIES);
@@ -201,6 +211,37 @@ int parse_cash_xml_data(char* filepath, char* node,
 	/* All ok! */
 	cash_focus->num_steps = focus_params.num_steps;
 	cash_focus->table = focus_params.table;
+
+	/* These configurations are not mandatory */
+	tmp = (int32_t)strtol(tof_min, NULL, 10);
+	if (tmp != 0) {
+		cash_config->tof_min = tmp;
+	}
+
+	tmp = (int32_t)strtol(tof_max, NULL, 10);
+	if (tmp != 0) {
+		cash_config->tof_max = tmp;
+	}
+
+	tmp = (int32_t)strtol(tof_hyst, NULL, 10);
+	if (tmp != 0) {
+		cash_config->tof_hyst = tmp;
+	}
+
+	tmp = (int32_t)strtol(tof_max_runs, NULL, 10);
+	if (tmp != 0) {
+		cash_config->tof_max_runs = tmp;
+	}
+
+	tmp = (int32_t)strtol(polyreg_degree, NULL, 10);
+	if (tmp != 0) {
+		cash_config->polyreg_degree = tmp;
+	}
+
+	tmp = (int32_t)strtol(polyreg_extra, NULL, 10);
+	if (tmp != 0) {
+		cash_config->polyreg_extra = tmp;
+	}
 
 end:
 	free(buf);

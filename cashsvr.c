@@ -44,9 +44,9 @@
 
 /* Serial port fd */
 static int serport = -1;
-static struct cash_cached_data cash_cached;
 static struct cash_focus_params focus_conf;
 static struct cash_focus_state  focus_state;
+static struct cash_configuration cash_conf;
 
 /* CASH Server */
 static int sock;
@@ -84,9 +84,10 @@ int cashsvr_is_tof_in_range(void)
 			TOF_STABILIZATION_WAIT_MS,
 			TOF_STABILIZATION_HYST_MM);
 
-	ALOGE("Got tof score %d", tof_score);
+	ALOGI("Got tof score %d", tof_score);
 
-	if (tof_data.range_mm < 0 || tof_data.range_mm > 1025)
+	if (tof_data.range_mm < cash_conf.tof_min ||
+	    tof_data.range_mm > cash_conf.tof_max)
 		return 0;
 
 	return 1;
@@ -98,14 +99,14 @@ int32_t cashsvr_get_focus(void) {
 	struct cash_vl53l0 tof_data;
 
 	tof_score = cash_tof_thr_read_stabilized(&tof_data,
-			TOF_STABILIZATION_DEF_RUNS,
+			cash_conf.tof_max_runs,
 			TOF_STABILIZATION_MATCH_NO,
 			TOF_STABILIZATION_WAIT_MS,
-			TOF_STABILIZATION_HYST_MM);
+			cash_conf.tof_hyst);
 
 	ALOGE("Got tof score %d", tof_score);
 	focus_step = (int32_t)polyreg_f(tof_data.range_mm, focus_conf.terms,
-					FOCTBL_POLYREG_DEGREE);
+					cash_conf.polyreg_degree);
 
 	ALOGD("Setting focus %d for %dmm", focus_step, tof_data.range_mm);
 
@@ -297,7 +298,7 @@ static int cash_autofocus_get_coeff(void)
 	focus_conf.terms = (double*)calloc(rs, sizeof(double));
 
 	compute_coefficients(pairs, focus_conf.num_steps,
-				FOCTBL_POLYREG_DEGREE, focus_conf.terms);
+				cash_conf.polyreg_degree, focus_conf.terms);
 	if (focus_conf.terms == NULL) {
 		ALOGE("FATAL: Cannot compute coefficients.");
 		return -5;
@@ -325,8 +326,15 @@ int main(void)
 
 	ALOGI("Initializing Camera Augmented Sensing Helper Server...");
 
+	cash_conf.tof_min = 0;
+	cash_conf.tof_max = 1030;
+	cash_conf.tof_hyst = TOF_STABILIZATION_HYST_MM;
+	cash_conf.tof_max_runs = TOF_STABILIZATION_DEF_RUNS;
+	cash_conf.polyreg_degree = FOCTBL_POLYREG_DEGREE;
+	cash_conf.polyreg_extra = 0;
+
 	rc = parse_cash_xml_data(CASHSERVER_CONF_FILE, "tof_focus",
-				&focus_conf);
+				&focus_conf, &cash_conf);
 	if (rc < 0) {
 		ALOGE("Cannot parse configuration for ToF assisted AF");
 	} else {
