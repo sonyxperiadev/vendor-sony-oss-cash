@@ -43,6 +43,7 @@ int cash_input_tof_read(struct cash_vl53l0 *stmvl_cur,
 int cash_tof_read_stabilized(
 	struct cash_vl53l0 *stmvl_final,
 	int runs, int nmatch, int sleep_ms, int hyst);
+int cash_tof_read_inst(struct cash_vl53l0 *stmvl_final);
 int cash_tof_thr_read_stabilized(
 	struct cash_vl53l0 *stmvl_final,
 	int runs, int nmatch, int sleep_ms, int hyst);

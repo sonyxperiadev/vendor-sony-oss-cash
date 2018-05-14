@@ -59,6 +59,8 @@ struct cash_configuration {
 	int32_t tof_max_runs;
 	int32_t polyreg_degree;
 	int32_t polyreg_extra;
+	int8_t  use_tof_stabilized;
+	int8_t  disable_tof;
 };
 
 struct cash_focus_state {

@@ -18,6 +18,7 @@
  */
 
 //#include <errno.h>
+#include <cutils/properties.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -75,16 +76,25 @@ int cashsvr_is_tof_in_range(void)
 	int tof_score, rc;
 	struct cash_vl53l0 tof_data;
 
+	if (cash_conf.disable_tof)
+		return 0;
+
 	if (!cash_input_is_tof_alive())
 		return 0;
 
-	tof_score = cash_tof_thr_read_stabilized(&tof_data,
-			TOF_STABILIZATION_DEF_RUNS,
-			TOF_STABILIZATION_MATCH_NO,
-			TOF_STABILIZATION_WAIT_MS,
-			TOF_STABILIZATION_HYST_MM);
+	if (cash_conf.use_tof_stabilized) {
+		tof_score = cash_tof_thr_read_stabilized(&tof_data,
+				TOF_STABILIZATION_DEF_RUNS,
+				TOF_STABILIZATION_MATCH_NO,
+				TOF_STABILIZATION_WAIT_MS,
+				TOF_STABILIZATION_HYST_MM);
 
-	ALOGI("Got tof score %d", tof_score);
+		ALOGI("Got tof score %d", tof_score);
+	} else {
+		rc = cash_tof_read_inst(&tof_data);
+		if (rc < 0)
+			return 0;
+	}
 
 	if (tof_data.range_mm < cash_conf.tof_min ||
 	    tof_data.range_mm > cash_conf.tof_max)
@@ -98,13 +108,18 @@ int32_t cashsvr_get_focus(void) {
 	int32_t focus_step;
 	struct cash_vl53l0 tof_data;
 
-	tof_score = cash_tof_thr_read_stabilized(&tof_data,
-			cash_conf.tof_max_runs,
-			TOF_STABILIZATION_MATCH_NO,
-			TOF_STABILIZATION_WAIT_MS,
-			cash_conf.tof_hyst);
+	if (cash_conf.use_tof_stabilized) {
+		tof_score = cash_tof_thr_read_stabilized(&tof_data,
+				cash_conf.tof_max_runs,
+				TOF_STABILIZATION_MATCH_NO,
+				TOF_STABILIZATION_WAIT_MS,
+				cash_conf.tof_hyst);
+	} else {
+		rc = cash_tof_read_inst(&tof_data);
+		if (rc < 0)
+			return 0;
+	}
 
-	ALOGE("Got tof score %d", tof_score);
 	focus_step = (int32_t)polyreg_f(tof_data.range_mm, focus_conf.terms,
 					cash_conf.polyreg_degree);
 
@@ -320,11 +335,10 @@ static int cash_autofocus_get_coeff(void)
 	return 0;
 }
 
-int main(void)
+int cashsvr_configure(void)
 {
-	int rc;
-
-	ALOGI("Initializing Camera Augmented Sensing Helper Server...");
+        char propbuf[PROPERTY_VALUE_MAX];
+	int rc = 0;
 
 	cash_conf.tof_min = 0;
 	cash_conf.tof_max = 1030;
@@ -332,6 +346,8 @@ int main(void)
 	cash_conf.tof_max_runs = TOF_STABILIZATION_DEF_RUNS;
 	cash_conf.polyreg_degree = FOCTBL_POLYREG_DEGREE;
 	cash_conf.polyreg_extra = 0;
+	cash_conf.use_tof_stabilized = 1;
+	cash_conf.disable_tof = 0;
 
 	rc = parse_cash_xml_data(CASHSERVER_CONF_FILE, "tof_focus",
 				&focus_conf, &cash_conf);
@@ -343,7 +359,37 @@ int main(void)
 			ALOGW("Cannot open ToF. Ranging will be unavailable");
 		cash_autofocus_get_coeff();
 	}
-	
+
+	/*
+	 * Use stabilized read with score system or otherwise do
+	 * a single reading of the ToF distance measurement and
+	 * instantly trust it if this configuration is zero.
+	 */
+        property_get("persist.cash.tof.stabilized", propbuf, "1");
+	if (atoi(propbuf) == 0)
+		cash_conf.use_tof_stabilized = 0;
+
+	/*
+	 * Disable ToF functionality if this configuration
+	 * option is 1.
+	 */
+        property_get("persist.cash.tof.disable", propbuf, "0");
+	if (atoi(propbuf) > 0)
+		cash_conf.disable_tof = 1;
+
+	return rc;
+}
+
+int main(void)
+{
+        char propbuf[PROPERTY_VALUE_MAX];
+	int rc;
+
+	ALOGI("Initializing Camera Augmented Sensing Helper Server...");
+
+	rc = cashsvr_configure();
+	if (rc != 0)
+		ALOGW("Configuration went wrong. You will experience issues.");
 start:
 	/* All devices opened and configured. Start! */
 	rc = manage_cashsvr(true);

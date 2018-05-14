@@ -92,6 +92,11 @@ int cash_tof_enable(bool enable)
 	if (uci_tof_enable_path == NULL)
 		return -1;
 
+	/* Reset the readings to start fresh */
+	stmvl_status.distance = -1;
+	stmvl_status.range_mm = -1;
+	stmvl_status.range_status = -1;
+
 	fd = open(uci_tof_enable_path, O_WRONLY | O_SYNC);
 	if (fd < 0) {
 		ALOGD("Cannot open %s", uci_tof_enable_path);
@@ -371,6 +376,30 @@ static inline bool cash_tof_is_val_ok(int d1, int d2, int hysteresis)
 		return true;
 
 	return false;
+}
+
+int cash_tof_read_inst(struct cash_vl53l0 *stmvl_final)
+{
+	/* Thread not running, we'd read nothing good here! */
+	if (!ucithread_run[THREAD_TOF])
+		return -1;
+
+	/* Sensor is disabled, what are we trying to read?! */
+	if (!tof_enabled)
+		return -1;
+
+	/* No reading available */
+	if (stmvl_status.range_mm < 0 || stmvl_status.distance < 0) {
+		ALOGE("ToF: No reading! %dmm dist%d",
+			stmvl_status.range_mm, stmvl_status.distance);
+		return -1;
+	}
+
+	stmvl_final->distance = stmvl_status.distance;
+	stmvl_final->range_mm = stmvl_status.range_mm;
+
+	/* Return a fake score of 1 */
+	return 1;
 }
 
 /*
