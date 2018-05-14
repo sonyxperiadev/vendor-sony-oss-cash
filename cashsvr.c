@@ -346,7 +346,7 @@ int cashsvr_configure(void)
 	cash_conf.tof_max_runs = TOF_STABILIZATION_DEF_RUNS;
 	cash_conf.polyreg_degree = FOCTBL_POLYREG_DEGREE;
 	cash_conf.polyreg_extra = 0;
-	cash_conf.use_tof_stabilized = 1;
+	cash_conf.use_tof_stabilized = 0;
 	cash_conf.disable_tof = 0;
 
 	rc = parse_cash_xml_data(CASHSERVER_CONF_FILE, "tof_focus",
@@ -365,9 +365,9 @@ int cashsvr_configure(void)
 	 * a single reading of the ToF distance measurement and
 	 * instantly trust it if this configuration is zero.
 	 */
-        property_get("persist.cash.tof.stabilized", propbuf, "1");
-	if (atoi(propbuf) == 0)
-		cash_conf.use_tof_stabilized = 0;
+        property_get("persist.cash.tof.stabilized", propbuf, "0");
+	if (atoi(propbuf) > 0)
+		cash_conf.use_tof_stabilized = 1;
 
 	/*
 	 * Disable ToF functionality if this configuration
