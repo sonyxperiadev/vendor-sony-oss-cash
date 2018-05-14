@@ -1,0 +1,13 @@
+on post-fs-data
+    # create directory for cashsvr
+    mkdir /dev/socket/cashsvr 0755 system system
+
+on property:sys.boot_completed=1
+    start cashsvr
+
+service cashsvr /vendor/bin/cashsvr
+    class main
+    user root
+    group system input
+    disabled
+
