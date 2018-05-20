@@ -7,6 +7,6 @@ on property:sys.boot_completed=1
 
 service cashsvr /vendor/bin/cashsvr
     class main
-    user system
+    user root
     group system input
     disabled

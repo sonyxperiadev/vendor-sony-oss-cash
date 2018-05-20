@@ -33,6 +33,8 @@
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
+#include <pwd.h>
 #include <linux/input.h>
 
 #include <private/android_filesystem_config.h>
@@ -126,6 +128,10 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 {
 	char* sns_mode_path;
 	int fd, rc;
+	struct passwd *pwd;
+	struct passwd *grp;
+	uid_t uid;
+	gid_t gid;
 
 	uci_tof_enable_path = (char*)calloc(plen + LEN_ENAB, sizeof(char));
 	if (uci_tof_enable_path == NULL) {
@@ -133,8 +139,29 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 		return -3;
 	}
 
+	pwd = getpwnam("system");
+	if (pwd == NULL) {
+		ALOGD("failed to get uid for system");
+		return 1;
+	}
+
+	uid = pwd->pw_uid;
+
+	grp = getpwnam("input");
+	if (grp == NULL) {
+		ALOGD("failed to get gid for input");
+		return 1;
+	}
+
+	gid = grp->pw_gid;
+
 	snprintf(uci_tof_enable_path, plen + LEN_ENAB,
 			"%s%d/enable_ps_sensor", sysfs_input_str, devno);
+
+	if (chown(uci_tof_enable_path, uid, gid) == -1) {
+		ALOGD("Cannot chown %s", uci_tof_enable_path);
+		return 1;
+	}
 
 	if (high_accuracy) {
 		sns_mode_path = (char*)calloc(plen + LEN_MODE, sizeof(char));
@@ -147,6 +174,11 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 		snprintf(sns_mode_path, plen + LEN_MODE,
 			"%s%d/set_use_case", sysfs_input_str, devno);
 
+		if (chown(sns_mode_path, uid, gid) == -1) {
+			ALOGD("Cannot chown %s/enable_ps_sensor", sns_mode_path);
+			return 1;
+		}
+
 		fd = open(sns_mode_path, O_WRONLY);
 		if (fd < 0) {
 			ALOGD("Cannot open %s", sns_mode_path);
@@ -158,6 +190,12 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 			ALOGW("ERROR! Cannot set ToF High Accuracy mode!");
 
 		close(fd);
+	}
+
+	/* We're done setting permissions now, let's move back to system context */
+	if (setuid(uid) == -1) {
+		ALOGD("Failed to change uid");
+		return 1;
 	}
 
 	return 0;
