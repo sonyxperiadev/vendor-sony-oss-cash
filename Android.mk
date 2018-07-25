@@ -15,6 +15,7 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
+LOCAL_VENDOR_MODULE := true
 LOCAL_COPY_HEADERS_TO := cashsvr
 LOCAL_COPY_HEADERS := ./cash_ext.h
 include $(BUILD_COPY_HEADERS)
