@@ -26,13 +26,15 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
 
-#include <private/android_filesystem_config.h>
-#include <utils/Log.h>
+#include <cutils/android_filesystem_config.h>
+#include <log/log.h>
 
 #include <libpolyreg/polyreg.h>
 #include "cash_private.h"

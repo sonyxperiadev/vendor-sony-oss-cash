@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 #include <sys/types.h>
@@ -29,10 +30,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include <private/android_filesystem_config.h>
+#include <cutils/android_filesystem_config.h>
 #include <hardware/hardware.h>
 #include <hardware/power.h>
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include "cash_private.h"
 

@@ -32,6 +32,7 @@ LOCAL_PROPRIETARY_MODULE := true
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
+LOCAL_HEADER_LIBRARIES := libhardware_headers
 LOCAL_SRC_FILES := cash_ctl.c
 LOCAL_SHARED_LIBRARIES := \
     liblog \

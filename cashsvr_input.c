@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <pthread.h>
 #include <errno.h>
 #include <assert.h>
 #include <string.h>
@@ -37,8 +38,8 @@
 #include <pwd.h>
 #include <linux/input.h>
 
-#include <private/android_filesystem_config.h>
-#include <utils/Log.h>
+#include <cutils/android_filesystem_config.h>
+#include <log/log.h>
 
 #include "cash_private.h"
 #include "cash_input.h"
