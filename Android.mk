@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := cashsvr.c cashsvr_input.c expatparser.c
 LOCAL_C_INCLUDES := external/expat/lib
 LOCAL_SHARED_LIBRARIES := liblog libcutils libexpat libpolyreg
 LOCAL_MODULE := cashsvr
+LOCAL_CFLAGS := -Wno-error
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := sony
 LOCAL_INIT_RC_64   := vendor/etc/init/cashsvr.rc

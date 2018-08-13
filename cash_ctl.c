@@ -39,7 +39,7 @@
 
 static int32_t send_cashsvr_data(struct cash_params params)
 {
-	register int sock, recvsock;
+	register int sock, __attribute__((unused))recvsock;
 	int ret, len = sizeof(struct sockaddr_un);
 	int32_t cashsvr_reply;
 	fd_set receivefd;
