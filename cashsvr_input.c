@@ -17,7 +17,6 @@
  * limitations under the License.
  */
 
-//#include <errno.h>
 #include <sys/poll.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
@@ -57,7 +56,6 @@
 #define SYSFS_INPUT_STR		"/sys/class/input/input%d"
 #define DEVFS_INPUT_STR		"/dev/input/event%d"
 
-static const char inputdev_name[] = "STM VL53L0 proximity sensor";
 static const char sysfs_input_str[] = "/sys/class/input/input";
 static const char devfs_input_str[] = "/dev/input/event";
 static int stmvl_fd;
@@ -71,8 +69,6 @@ enum {
 
 static bool ucithread_run[THREAD_MAX];
 static pthread_t uci_pthreads[THREAD_MAX];
-static int inotof_fd;
-static struct inotify_tof *inotof;
 static struct pollfd uci_pfds[FD_MAX];
 static struct epoll_event uci_pollevt[FD_MAX];
 static int uci_pollfd[FD_MAX];
@@ -205,9 +201,8 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 /* TODO: Use IOCTL EVIOCGNAME as a waaaay better way */
 static int cash_find_inputdev(int maxdevs, int idev_len, char* idev_name)
 {
-	int fd, plen, rlen, vlen, rc, i;
+	int fd, plen, rlen, rc, i;
 	int plen_xtra = 3;
-	bool found = false;
 	char buf[254];
 	char* path;
 
@@ -278,7 +273,7 @@ int cash_input_tof_read(struct cash_vl53l0 *stmvl_cur,
 {
 	struct input_event evt[64];
 	int retry = 0, i, len, rc;
-	bool rd, rr, rs, out;
+	bool rd, rr, rs;
 	uint16_t type, code;
 	int32_t value;
 
@@ -354,14 +349,13 @@ int cash_input_tof_thr_read(struct cash_vl53l0 *stmvl_cur,
 			int tof_fd)
 {
 	struct input_event evt[16];
-	int retry = 0, i, len, rc;
-	bool rd, rr, rs, out;
+	int i, len, rc;
+	bool rd, rr, rs;
 	uint16_t type, code;
 	int32_t value;
 
 	stmvl_cur->range_status = 0;
 
-again:
 	rd = false;
 	rr = false;
 	rs = false;
@@ -457,7 +451,7 @@ int cash_tof_thr_read_stabilized(
 	struct cash_vl53l0 *stmvl_final,
 	int runs, int nmatch, int sleep_ms, int hyst)
 {
-	int rc, retry = 0, cur_dst, range, score, i;
+	int retry = 0, cur_dst, range, score, i;
 
 	/* Thread not running, we'd read nothing good here! */
 	if (!ucithread_run[THREAD_TOF])

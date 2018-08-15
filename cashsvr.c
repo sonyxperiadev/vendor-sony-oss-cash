@@ -17,7 +17,6 @@
  * limitations under the License.
  */
 
-//#include <errno.h>
 #include <cutils/properties.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,7 +47,6 @@
 /* Serial port fd */
 static int serport = -1;
 static struct cash_focus_params focus_conf;
-static struct cash_focus_state  focus_state;
 static struct cash_configuration cash_conf;
 
 /* CASH Server */
@@ -288,7 +286,7 @@ static int manage_cashsvr(bool start)
  */
 static int cash_autofocus_get_coeff(void)
 {
-	int i;
+	uint32_t i;
 	struct pair_data *pairs;
 	double coeff;
 	int rs = 3 * FOCTBL_POLYREG_DEGREE;
@@ -384,7 +382,6 @@ int cashsvr_configure(void)
 
 int main(void)
 {
-        char propbuf[PROPERTY_VALUE_MAX];
 	int rc;
 
 	ALOGI("Initializing Camera Augmented Sensing Helper Server...");
@@ -402,7 +399,7 @@ start:
 		goto err;
 	}
 
-	pthread_join(cashsvr_thread, (int**)&rc);
+	pthread_join(cashsvr_thread, (void**)&rc);
 	if (rc == 0)
 		goto start;
 

@@ -90,10 +90,6 @@ void parseElm(const char *elm, const char **attr)
 				strcpy(tof_max_runs, attr[i+1]);
 		}
 	}
-
-
-end:
-	return;
 }
 
 void startElm(void *data UNUSED, const char *elm, const char **attr)
