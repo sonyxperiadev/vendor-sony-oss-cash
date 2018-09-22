@@ -29,7 +29,6 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := sony
 LOCAL_INIT_RC_64   := vendor/etc/init/cashsvr.rc
 LOCAL_PROPRIETARY_MODULE := true
-LOCAL_CFLAGS += -Wno-macro-redefined
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)

@@ -17,6 +17,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG			"CASH_INPUT"
+
 #include <sys/poll.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
@@ -43,8 +45,6 @@
 #include "cash_private.h"
 #include "cash_input.h"
 #include "cash_ext.h"
-
-#define LOG_TAG			"CASH_INPUT"
 
 #define VL53L0_EVT		"/dev/input/event1"
 #define VL53L0_STR		"STM VL53L0 proximity sensor"

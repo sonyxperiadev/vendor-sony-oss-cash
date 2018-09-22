@@ -17,6 +17,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG			"CASH"
+
 #include <cutils/properties.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -39,8 +41,6 @@
 #include "cash_private.h"
 #include "cash_input.h"
 #include "cash_ext.h"
-
-#define LOG_TAG			"CASH"
 
 #define UNUSED __attribute__((unused))
 

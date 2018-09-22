@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "CASH-XMLParser"
+
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -35,8 +37,6 @@
 #include <log/log.h>
 
 #define UNUSED __attribute__((unused))
-
-#define LOG_TAG "CASH-XMLParser"
 
 #define CASH_MAX_FOCTBL_ENTRIES	500
 
@@ -121,7 +121,7 @@ void str_handler(void *data, const char *str, int len)
 	data = (void*)buf;
 }
 
-int parse_cash_xml_data(char* filepath, char* node, 
+int parse_cash_xml_data(char* filepath, char* node,
 			struct cash_focus_params *cash_focus,
 			struct cash_configuration *cash_config)
 {
