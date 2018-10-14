@@ -1,6 +1,6 @@
 /*
- * Micro Communicator for Projection uC
- * a High-Speed Serial communications server
+ * CASH! Camera Augmented Sensing Helper
+ * a multi-sensor camera helper server
  *
  * Input devices module
  *
@@ -33,11 +33,6 @@ struct cash_vl53l0 {
 	int measure_mode;
 };
 
-enum {
-	THREAD_TOF,
-	THREAD_MAX
-};
-
 int cash_input_tof_read(struct cash_vl53l0 *stmvl_cur,
 	uint16_t want_code);
 int cash_tof_read_stabilized(
@@ -48,7 +43,6 @@ int cash_tof_thr_read_stabilized(
 	struct cash_vl53l0 *stmvl_final,
 	int runs, int nmatch, int sleep_ms, int hyst);
 int cash_input_tof_start(bool start);
-int cash_input_threadman(bool start, int threadno);
 bool cash_input_is_tof_alive(void);
 int cash_input_tof_init(void);
 
