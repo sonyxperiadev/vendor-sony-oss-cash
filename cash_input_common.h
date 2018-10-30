@@ -2,6 +2,8 @@
  * CASH! Camera Augmented Sensing Helper
  * a multi-sensor camera helper server
  *
+ * Input devices module
+ *
  * Copyright (C) 2018 AngeloGioacchino Del Regno <kholk11@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,20 +19,36 @@
  * limitations under the License.
  */
 
-#ifndef CASHSVR_EXT_H
-#define CASHSVR_EXT_H
+#define ITERATE_MAX_DEVS	9
 
-struct exptime_iso_tpl {
-	int64_t exptime;
-	int32_t iso;
+enum thread_number {
+	THREAD_TOF,
+	THREAD_RGBC,
+	THREAD_MAX
 };
 
-int cash_tof_start(int value);
-int cash_is_tof_in_range(void);
-int32_t cash_get_focus(void);
 
-int cash_rgbc_start(int value);
-int cash_is_rgbc_in_range(void);
-struct exptime_iso_tpl cash_get_exptime_iso(void);
+enum fd_number {
+	FD_TOF,
+	FD_RGBC,
+	FD_MAX
+};
 
-#endif
+struct thread_data {
+	enum thread_number thread_no;
+	void *thread_func;
+};
+
+bool cash_thread_run[THREAD_MAX];
+pthread_t cash_pthreads[THREAD_MAX];
+struct pollfd cash_pfds[FD_MAX];
+struct epoll_event cash_pollevt[FD_MAX];
+int cash_pollfd[FD_MAX];
+int cash_pfdelay_ms[FD_MAX];
+
+static const char sysfs_input_str[] = "/sys/class/input/input";
+static const char devfs_input_str[] = "/dev/input/event";
+
+int cash_input_threadman(bool start, struct thread_data *thread_data);
+int cash_set_parameter(char* path, char* value, int value_len);
+

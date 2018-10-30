@@ -33,20 +33,23 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <pwd.h>
 
 #include <cutils/android_filesystem_config.h>
 #include <log/log.h>
 
 #include <libpolyreg/polyreg.h>
 #include "cash_private.h"
-#include "cash_input.h"
+#include "cash_input_tof.h"
+#include "cash_input_rgbc.h"
 #include "cash_ext.h"
 
 #define UNUSED __attribute__((unused))
 
 /* Serial port fd */
 static int serport = -1;
-static struct cash_focus_params focus_conf;
+static struct cash_polyreg_params focus_conf;
+static struct cash_polyreg_params clear_iso_conf;
 static struct cash_configuration cash_conf;
 
 /* CASH Server */
@@ -63,6 +66,11 @@ static bool ucthread_run = true;
 static int cashsvr_tof_start(int ena)
 {
 	return cash_input_tof_start(ena);
+}
+
+static int cashsvr_rgbc_start(int ena)
+{
+	return cash_input_rgbc_start(ena);
 }
 
 /*
@@ -103,8 +111,64 @@ int cashsvr_is_tof_in_range(void)
 	return 1;
 }
 
-int32_t cashsvr_get_focus(void) {
-	int rc, tof_score;
+/*
+ * cashsvr_is_rgbc_in_range - Checks if the RGBC reading is within the
+ *                           allowed range.
+ *
+ * \return Returns 0 (FALSE) for "out of range" or "error" or 1 (TRUE)
+ */
+int cashsvr_is_rgbc_in_range(void)
+{
+	int rc;
+	struct cash_tcs3490 rgbc_data;
+
+	if (cash_conf.disable_rgbc)
+		return 0;
+
+	if (!cash_input_is_rgbc_alive())
+		return 0;
+
+	rc = cash_rgbc_read_inst(&rgbc_data);
+	if (rc < 0)
+		return 0;
+
+	if (rgbc_data.clear < cash_conf.rgbc_clear_min ||
+	    rgbc_data.clear > cash_conf.rgbc_clear_max)
+		return 0;
+
+	return 1;
+}
+
+int32_t cashsvr_get_exptime_iso(struct cash_response *cash_resp) {
+	int rc;
+	uint32_t i;
+	struct cash_tcs3490 rgbc_data;
+	int64_t exptime = -1;
+	int32_t iso = -1;
+
+	rc = cash_rgbc_read_inst(&rgbc_data);
+	if (rc < 0)
+		return rc;
+
+	iso = (int32_t)polyreg_f(rgbc_data.clear, clear_iso_conf.terms,
+					cash_conf.rgbc_polyreg_degree);
+	
+	for (i = 0; i < clear_iso_conf.num_steps; i++) {
+		if (iso >= clear_iso_conf.table[i].output_val) {
+			break;
+		}
+	}
+	exptime = cash_conf.exposure_times[i];
+
+	ALOGD("Setting exposure time to %ld and iso to %d for %d clear value", exptime, iso, rgbc_data.clear);
+	cash_resp->exptime = exptime;
+	cash_resp->iso = iso;
+
+	return rc;
+}
+
+int32_t cashsvr_get_focus(struct cash_response *cash_resp) {
+	int tof_score, rc = -EINVAL;
 	int32_t focus_step;
 	struct cash_vl53l0 tof_data;
 
@@ -121,12 +185,14 @@ int32_t cashsvr_get_focus(void) {
 	}
 
 	focus_step = (int32_t)polyreg_f(tof_data.range_mm, focus_conf.terms,
-					cash_conf.polyreg_degree);
+					cash_conf.tof_polyreg_degree);
 
 	ALOGD("Setting focus %d for %dmm", focus_step, tof_data.range_mm);
+	cash_resp->focus_step = focus_step;
 
-	return focus_step;
+	return rc;
 }
+
 
 /*
  * cash_dispatch - Recognizes the requested operation and calls
@@ -134,7 +200,7 @@ int32_t cashsvr_get_focus(void) {
  *
  * \return Returns success(0) or negative errno.
  */
-static int32_t cash_dispatch(struct cash_params *params)
+static int32_t cash_dispatch(struct cash_params *params, struct cash_response *cash_resp)
 {
 	int32_t rc;
 	int val = params->value;
@@ -142,28 +208,39 @@ static int32_t cash_dispatch(struct cash_params *params)
 	switch (params->operation) {
 	case OP_TOF_START:
 		rc = cashsvr_tof_start(val);
+		break;
 	case OP_CHECK_TOF_RANGE:
 		rc = cashsvr_is_tof_in_range();
 		break;
 	case OP_FOCUS_GET:
-		rc = cashsvr_get_focus();
+		rc = cashsvr_get_focus(cash_resp);
+		break;
+	case OP_RGBC_START:
+		rc = cashsvr_rgbc_start(val);
+		break;
+	case OP_CHECK_RGBC_RANGE:
+		rc = cashsvr_is_rgbc_in_range();
+		break;
+	case OP_EXPTIME_ISO_GET:
+		rc = cashsvr_get_exptime_iso(cash_resp);
 		break;
 	default:
 		ALOGE("Invalid operation requested.");
 		rc = -2;
 	}
 
+	cash_resp->retval = rc;
 	return rc;
 }
 
 static void *cashsvr_looper(void *unusedvar UNUSED)
 {
-	int ret;
-	int32_t cash_reply = -EINVAL;
+	int ret = -EINVAL;
 	uint8_t retry;
 	socklen_t clientlen = sizeof(struct sockaddr_un);
 	struct sockaddr_un client_addr;
 	struct cash_params extparams;
+	struct cash_response cash_resp = { 0, -1, -1, -1 };
 
 reloop:
 	ALOGI("CASH Server is waiting for connection...");
@@ -185,14 +262,17 @@ reloop:
 			goto reloop;
 		} else ret = 0;
 
-		cash_reply = cash_dispatch(&extparams);
+		ret = cash_dispatch(&extparams, &cash_resp);
+		if (ret < 0) {
+			ALOGE("Cannot dispatch. Error %d", ret);
+			goto reloop;
+		}
 
 retry_send:
 		retry++;
-		ret = send(clientsock, &cash_reply,
-			sizeof(cash_reply), 0);
+		ret = send(clientsock, &cash_resp,
+			sizeof(cash_resp), 0);
 		if (ret == -1) {
-			cash_reply = -EINVAL;
 			if (retry < 50)
 				goto retry_send;
 			ALOGE("ERROR: Cannot send reply!!!");
@@ -303,7 +383,7 @@ static int cash_autofocus_get_coeff(void)
 
 	for (i = 0; i <= focus_conf.num_steps; i++) {
 		pairs[i].x = focus_conf.table[i].input_val;
-		pairs[i].y = focus_conf.table[i].focus_step;
+		pairs[i].y = focus_conf.table[i].output_val;
 		ALOGD("Table x:%.2f  y:%.2f",
 			pairs[i].x, pairs[i].y);
 	}
@@ -313,7 +393,7 @@ static int cash_autofocus_get_coeff(void)
 	focus_conf.terms = (double*)calloc(rs, sizeof(double));
 
 	compute_coefficients(pairs, focus_conf.num_steps,
-				cash_conf.polyreg_degree, focus_conf.terms);
+				cash_conf.tof_polyreg_degree, focus_conf.terms);
 	if (focus_conf.terms == NULL) {
 		ALOGE("FATAL: Cannot compute coefficients.");
 		return -5;
@@ -335,6 +415,65 @@ static int cash_autofocus_get_coeff(void)
 	return 0;
 }
 
+/*
+ * cash_clear_iso_get_coeff - Prepares the iso algorithm in advance
+ *			       by getting the polynomial regression's
+ *			       correlation coefficient for the provided
+ *			       clear-iso table.
+ *
+ * \return Returns zero or negative errno.
+ */
+static int cash_clear_iso_get_coeff(void)
+{
+	uint32_t i;
+	struct pair_data *pairs;
+	double coeff;
+	int rs = 3 * FOCTBL_POLYREG_DEGREE;
+
+	if (clear_iso_conf.table == NULL)
+		return -3;
+
+	pairs = (struct pair_data*)calloc(clear_iso_conf.num_steps+1,
+				 sizeof(struct pair_data));
+	if (pairs == NULL) {
+		ALOGE("Memory exhausted. Cannot write clear-iso table");
+		return -4;
+	}
+
+	for (i = 0; i <= clear_iso_conf.num_steps; i++) {
+		pairs[i].x = clear_iso_conf.table[i].input_val;
+		pairs[i].y = clear_iso_conf.table[i].output_val;
+		ALOGD("Table x:%.2f  y:%.2f",
+			pairs[i].x, pairs[i].y);
+	}
+
+	ALOGE("Got %d pairs", clear_iso_conf.num_steps);
+
+	clear_iso_conf.terms = (double*)calloc(rs, sizeof(double));
+
+	compute_coefficients(pairs, clear_iso_conf.num_steps,
+				cash_conf.rgbc_polyreg_degree, clear_iso_conf.terms);
+	if (clear_iso_conf.terms == NULL) {
+		ALOGE("FATAL: Cannot compute coefficients.");
+		return -5;
+	}
+
+	for (i = 0; i < clear_iso_conf.num_steps; i++)
+		ALOGE("Term%d: %.10f",i, clear_iso_conf.terms[i]);
+
+	coeff = corr_coeff(pairs, clear_iso_conf.num_steps, clear_iso_conf.terms);
+	if (coeff > 1.0f)
+		ALOGW("WARNING! The correlation coefficient is >1!!");
+	else if (coeff == 0.0f)
+		ALOGW("WARNING! The correlation coefficient is ZERO!!");
+
+	ALOGD("Correlation coefficient: %.10f", coeff);
+
+	ALOGI("Clear-ISO Polynomial Regression coordinates loaded.");
+
+	return 0;
+}
+
 int cashsvr_configure(void)
 {
         char propbuf[PROPERTY_VALUE_MAX];
@@ -344,12 +483,17 @@ int cashsvr_configure(void)
 	cash_conf.tof_max = 1030;
 	cash_conf.tof_hyst = TOF_STABILIZATION_HYST_MM;
 	cash_conf.tof_max_runs = TOF_STABILIZATION_DEF_RUNS;
-	cash_conf.polyreg_degree = FOCTBL_POLYREG_DEGREE;
-	cash_conf.polyreg_extra = 0;
+	cash_conf.tof_polyreg_degree = FOCTBL_POLYREG_DEGREE;
+	cash_conf.tof_polyreg_extra = 0;
 	cash_conf.use_tof_stabilized = 0;
 	cash_conf.disable_tof = 0;
+	cash_conf.rgbc_clear_min = 0;
+	cash_conf.rgbc_clear_max = 300;
+	cash_conf.rgbc_polyreg_degree = FOCTBL_POLYREG_DEGREE;
+	cash_conf.rgbc_polyreg_extra = 0;
+	cash_conf.disable_rgbc = 0;
 
-	rc = parse_cash_xml_data(CASHSERVER_CONF_FILE, "tof_focus",
+	rc = parse_cash_tof_xml_data(CASHSERVER_TOF_CONF_FILE, "tof_focus",
 				&focus_conf, &cash_conf);
 	if (rc < 0) {
 		ALOGE("Cannot parse configuration for ToF assisted AF");
@@ -377,18 +521,49 @@ int cashsvr_configure(void)
 	if (atoi(propbuf) > 0)
 		cash_conf.disable_tof = 1;
 
+	/*
+	 * Initialize RGBC sensor
+	 */
+	rc = parse_cash_rgbc_xml_data(CASHSERVER_RGBC_CONF_FILE, "clear_iso",
+				&clear_iso_conf, &cash_conf);
+	if (rc < 0) {
+		ALOGE("Cannot parse configuration for RGBC assisted AE");
+	} else {
+		rc = cash_input_rgbc_init();
+		if (rc < 0)
+			ALOGW("Cannot open RGBC. Exposure control will be unavailable");
+		cash_clear_iso_get_coeff();
+	}
+
+	/*
+	 * Disable RGBC functionality if this configuration
+	 * option is 1.
+	 */
+        property_get("persist.cash.rgbc.disable", propbuf, "0");
+	if (atoi(propbuf) > 0)
+		cash_conf.disable_rgbc = 1;
+
 	return rc;
 }
 
 int main(void)
 {
 	int rc;
+	struct passwd *pwd;
 
 	ALOGI("Initializing Camera Augmented Sensing Helper Server...");
 
 	rc = cashsvr_configure();
 	if (rc != 0)
 		ALOGW("Configuration went wrong. You will experience issues.");
+
+	/* We're done setting permissions now, let's move back to system context */
+	pwd = getpwnam("system");
+	if (pwd == NULL)
+		ALOGW("failed to get uid for system");
+	else if (setuid(pwd->pw_uid) == -1)
+		ALOGW("Failed to change uid");
+
 start:
 	/* All devices opened and configured. Start! */
 	rc = manage_cashsvr(true);

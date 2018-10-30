@@ -21,7 +21,7 @@ LOCAL_COPY_HEADERS := ./cash_ext.h
 include $(BUILD_COPY_HEADERS)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := cashsvr.c cashsvr_input.c expatparser.c
+LOCAL_SRC_FILES := cashsvr.c cash_input_common.c cashsvr_input_tof.c cashsvr_input_rgbc.c expatparser.c
 LOCAL_C_INCLUDES := external/expat/lib
 LOCAL_SHARED_LIBRARIES := liblog libcutils libexpat libpolyreg
 LOCAL_MODULE := cashsvr

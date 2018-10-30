@@ -2,7 +2,10 @@
  * CASH! Camera Augmented Sensing Helper
  * a multi-sensor camera helper server
  *
+ * Input devices module
  * Copyright (C) 2018 AngeloGioacchino Del Regno <kholk11@gmail.com>
+ *
+ * RGBC-IR module
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +20,16 @@
  * limitations under the License.
  */
 
-#ifndef CASHSVR_EXT_H
-#define CASHSVR_EXT_H
-
-struct exptime_iso_tpl {
-	int64_t exptime;
-	int32_t iso;
+struct cash_tcs3490 {
+	int red;
+	int green;
+	int blue;
+	int clear;
+	int ir;
 };
 
-int cash_tof_start(int value);
-int cash_is_tof_in_range(void);
-int32_t cash_get_focus(void);
+int cash_rgbc_read_inst(struct cash_tcs3490 *tcsvl_final);
+int cash_input_rgbc_start(bool start);
+bool cash_input_is_rgbc_alive(void);
+int cash_input_rgbc_init(void);
 
-int cash_rgbc_start(int value);
-int cash_is_rgbc_in_range(void);
-struct exptime_iso_tpl cash_get_exptime_iso(void);
-
-#endif

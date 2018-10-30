@@ -35,13 +35,13 @@
 #include <hardware/power.h>
 #include <log/log.h>
 
+#include "cash_ext.h"
 #include "cash_private.h"
 
-static int32_t send_cashsvr_data(struct cash_params params)
+static int32_t send_cashsvr_data(struct cash_params params, struct cash_response *cash_resp)
 {
 	register int sock;
 	int ret, len = sizeof(struct sockaddr_un);
-	int32_t cashsvr_reply;
 	fd_set receivefd;
 	struct sockaddr_un server_address;
 	struct timeval timeout;
@@ -97,40 +97,91 @@ static int32_t send_cashsvr_data(struct cash_params params)
 	}
 
 	/* New FD is set and the socket is ready to receive data */
-	ret = recv(sock, &cashsvr_reply, sizeof(int32_t), 0);
+	ret = recv(sock, cash_resp, sizeof(struct cash_response), 0);
 	if (ret == -1) {
 		ALOGE("Cannot receive reply from CASH Server");
-		ret = cashsvr_reply = -EINVAL;
-	} else ret = cashsvr_reply;
+		ret = -EINVAL;
+	}
 end:
 	if (sock)
 		close(sock);
 	return ret;
 }
 
-static int32_t cashsvr_send_set(int operation, int value)
+static int32_t cashsvr_send_set(int operation, int value, struct cash_response *cash_resp)
 {
 	struct cash_params params;
 
 	params.operation = operation;
 	params.value = (int32_t)value;
 
-	return send_cashsvr_data(params);
+	return send_cashsvr_data(params, cash_resp);
 }
 
 int cash_tof_start(int value)
 {
-	return cashsvr_send_set(OP_TOF_START, value);
+	int rc;
+	struct cash_response cash_resp;
+	rc = cashsvr_send_set(OP_TOF_START, value, &cash_resp);
+	if(rc > 0) {
+		return cash_resp.retval;
+	}
+	return rc;
 }
 
 int cash_is_tof_in_range(void)
 {
-	return cashsvr_send_set(OP_CHECK_TOF_RANGE, 0);
+	int rc;
+	struct cash_response cash_resp;
+	rc = cashsvr_send_set(OP_CHECK_TOF_RANGE, 0, &cash_resp);
+	if(rc > 0) {
+		return cash_resp.retval;
+	}
+	return rc;
 }
 
 int32_t cash_get_focus(void)
 {
-	return cashsvr_send_set(OP_FOCUS_GET, 0);
+	int rc;
+	struct cash_response cash_resp;
+	rc = cashsvr_send_set(OP_FOCUS_GET, 0, &cash_resp);
+	if(rc > 0) {
+		return cash_resp.focus_step;
+	}
+	return rc;
+}
+
+int cash_rgbc_start(int value)
+{
+	int rc;
+	struct cash_response cash_resp;
+	rc = cashsvr_send_set(OP_RGBC_START, value, &cash_resp);
+	if(rc > 0)
+		return cash_resp.retval;
+	return rc;
+}
+
+int cash_is_rgbc_in_range(void)
+{
+	int rc;
+	struct cash_response cash_resp;
+	rc = cashsvr_send_set(OP_CHECK_RGBC_RANGE, 0, &cash_resp);
+	if(rc > 0)
+		return cash_resp.retval;
+	return rc;
+}
+
+struct exptime_iso_tpl cash_get_exptime_iso(void)
+{
+	int rc;
+	struct cash_response cash_resp;
+	struct exptime_iso_tpl exptime_iso = { -1, -1};
+	rc = cashsvr_send_set(OP_EXPTIME_ISO_GET, 0, &cash_resp);
+	if(rc > 0) {
+		exptime_iso.exptime = cash_resp.exptime;
+		exptime_iso.iso = cash_resp.iso;
+	}
+	return exptime_iso;
 }
 
 

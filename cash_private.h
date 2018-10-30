@@ -24,30 +24,27 @@
 #define CASHSERVER_SOCKET		CASHSERVER_DIR "cashsvr"
 #define CASHSERVER_MAXCONN		10
 
-#define CASHSERVER_CONF_FILE		"/vendor/etc/tof_focus_calibration.xml"
+#define CASHSERVER_TOF_CONF_FILE	"/vendor/etc/tof_focus_calibration.xml"
+#define CASHSERVER_RGBC_CONF_FILE	"/vendor/etc/cash_expcol_calibration.xml"
 
 typedef enum {
 	OP_INITIALIZE = 0,
 	OP_TOF_START,
 	OP_CHECK_TOF_RANGE,
 	OP_FOCUS_GET,
+	OP_RGBC_START,
+	OP_CHECK_RGBC_RANGE,
+	OP_EXPTIME_ISO_GET,
 	OP_MAX,
 } cash_svr_ops_t;
 
-struct cash_cached_data {
-	bool light_suspended;
-	uint8_t light;
-	uint8_t focus;
-	uint8_t keystone;
-};
-
-struct cash_foctbl_entry {
+struct cash_polyreg_tbl_entry {
 	int32_t input_val;
-	int32_t focus_step;
+	int32_t output_val;
 };
 
-struct cash_focus_params {
-	struct cash_foctbl_entry *table;
+struct cash_polyreg_params {
+	struct cash_polyreg_tbl_entry *table;
 	unsigned int num_steps;
 	double *terms;
 };
@@ -57,10 +54,17 @@ struct cash_configuration {
 	int32_t tof_max;
 	int32_t tof_hyst;
 	int32_t tof_max_runs;
-	int32_t polyreg_degree;
-	int32_t polyreg_extra;
+	int32_t tof_polyreg_degree;
+	int32_t tof_polyreg_extra;
 	int8_t  use_tof_stabilized;
 	int8_t  disable_tof;
+	int32_t rgbc_clear_min;
+	int32_t rgbc_clear_max;
+	int32_t rgbc_polyreg_degree;
+	int32_t rgbc_polyreg_extra;
+	int8_t  disable_rgbc;
+	int64_t *exposure_times;
+	int32_t nexposure_times;
 };
 
 struct cash_focus_state {
@@ -74,8 +78,19 @@ struct cash_params {
 	int32_t value;
 };
 
-int parse_cash_xml_data(char* filepath, char* node, 
-			struct cash_focus_params *cash_focus,
+struct cash_response {
+	bool retval;
+	int32_t focus_step;
+	int64_t exptime;
+	int32_t iso;
+};
+
+int parse_cash_tof_xml_data(char* filepath, char* node, 
+			struct cash_polyreg_params *cash_focus,
+			struct cash_configuration *cash_config);
+
+int parse_cash_rgbc_xml_data(char* filepath, char* node, 
+			struct cash_polyreg_params *cash_rgbc_clear_iso,
 			struct cash_configuration *cash_config);
 
 #define REPLY_FOCUS_CUSTOM_LEN		7
