@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include <log/log.h>
 
