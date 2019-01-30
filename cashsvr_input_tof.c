@@ -288,7 +288,7 @@ again:
 					}
 					break;
 				case ABS_HAT1X:
-					if (value < 9000 && value >= 0) {
+					if (value < 9000 && value > 0) {
 						stmvl_cur->range_mm = value;
 						rr = true;
 					}
@@ -357,7 +357,7 @@ int cash_input_tof_thr_read(struct cash_vl53l0 *stmvl_cur,
 				}
 				break;
 			case ABS_HAT1X:
-				if (value < 9000 && value >= 0) {
+				if (value < 9000 && value > 0) {
 					stmvl_cur->range_mm = value;
 					rr = true;
 				}
