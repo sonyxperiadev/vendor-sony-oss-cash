@@ -24,6 +24,7 @@ include $(BUILD_COPY_HEADERS)
 
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := cashsvr.c cash_input_common.c cashsvr_input_tof.c cashsvr_input_rgbc.c expatparser.c
+LOCAL_SRC_FILES += cashsvr_input_miscta_params.c
 LOCAL_C_INCLUDES := external/expat/lib
 LOCAL_SHARED_LIBRARIES := liblog libcutils libexpat libpolyreg
 LOCAL_MODULE := cashsvr

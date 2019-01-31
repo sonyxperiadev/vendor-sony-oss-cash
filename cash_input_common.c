@@ -17,13 +17,11 @@
  * limitations under the License.
  */
 
-#include <sys/poll.h>
-#include <sys/epoll.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <unistd.h>
-
+#include <pwd.h>
 #include <log/log.h>
 
 #include "cash_input_common.h"
@@ -70,4 +68,44 @@ int cash_set_parameter(char* path, char* value, int value_len) {
 	}
 	close(fd);
 	return 0;
+}
+
+/*
+ * cash_set_permissions - Common utility function to set file permissions
+ *
+ * \param fpath - Path of the file or directory
+ * \param str_uid - Username string
+ * \param str_gid - Group name string
+ *
+ * \return Returns zero for success or -1 for error.
+ */
+int cash_set_permissions(char* fpath, char* str_uid, char* str_gid)
+{
+	struct passwd *pwd;
+	struct passwd *grp;
+	uid_t uid;
+	gid_t gid;
+	int rc = 0;
+
+	/* get user and group to call chown */
+	pwd = getpwnam(str_uid);
+	if (pwd == NULL) {
+		ALOGD("failed to get uid for %s", str_uid);
+		return -1;
+	}
+
+	grp = getpwnam(str_gid);
+	if (grp == NULL) {
+		ALOGD("failed to get gid for %s", str_gid);
+		return -1;
+	}
+
+	uid = pwd->pw_uid;
+	gid = grp->pw_gid;
+
+	rc = chown(fpath, uid, gid);
+	if (rc == -1)
+		ALOGE("Cannot set permissions for %s", fpath);
+
+	return rc;
 }

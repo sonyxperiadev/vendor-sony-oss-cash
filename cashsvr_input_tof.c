@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 #include <linux/input.h>
 
 #include <cutils/android_filesystem_config.h>
@@ -63,6 +62,8 @@ struct cash_vl53l0 stmvl_status;
 #define LEN_NAME	4
 #define LEN_ENAB	16
 #define LEN_MODE	12
+#define LEN_REF_SPADS	13
+#define LEN_UM_OFFSET	13
 
 int cash_tof_enable(bool enable)
 {
@@ -101,14 +102,14 @@ end:
 	return rc;
 }
 
-static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
+static int cash_tof_sys_init(bool high_accuracy, int devno, int plen,
+			     struct cash_tamisc_calib_params *calib_params)
 {
 	char* sns_mode_path;
-	int fd, rc;
-	struct passwd *pwd;
-	struct passwd *grp;
-	uid_t uid;
-	gid_t gid;
+	char* spad_calib_path;
+	char* um_offset_path;
+	char* buf;
+	int rc, cnt;
 
 	cash_tof_enable_path = (char*)calloc(plen + LEN_ENAB, sizeof(char));
 	if (cash_tof_enable_path == NULL) {
@@ -116,64 +117,107 @@ static int cash_tof_sys_init(bool high_accuracy, int devno, int plen)
 		return -3;
 	}
 
-	pwd = getpwnam("system");
-	if (pwd == NULL) {
-		ALOGD("failed to get uid for system");
-		return 1;
-	}
-
-	uid = pwd->pw_uid;
-
-	grp = getpwnam("input");
-	if (grp == NULL) {
-		ALOGD("failed to get gid for input");
-		return 1;
-	}
-
-	gid = grp->pw_gid;
-
 	snprintf(cash_tof_enable_path, plen + LEN_ENAB,
 			"%s%d/enable_ps_sensor", sysfs_input_str, devno);
 
-	if (chown(cash_tof_enable_path, uid, gid) == -1) {
-		ALOGD("Cannot chown %s", cash_tof_enable_path);
-		return 1;
-	}
+	rc = cash_set_permissions(cash_tof_enable_path, "system", "input");
+	if (rc == -1)
+		return rc;
 
 	if (high_accuracy) {
 		sns_mode_path = (char*)calloc(plen + LEN_MODE, sizeof(char));
 		if (sns_mode_path == NULL) {
 			ALOGE("Memory exhausted. Cannot allocate.");
 			free(cash_tof_enable_path);
+			cash_tof_enable_path = NULL;
 			return -3;
 		}
 
 		snprintf(sns_mode_path, plen + LEN_MODE,
 			"%s%d/set_use_case", sysfs_input_str, devno);
 
-		if (chown(sns_mode_path, uid, gid) == -1) {
-			ALOGD("Cannot chown %s/enable_ps_sensor", sns_mode_path);
-			return 1;
+		rc = cash_set_permissions(sns_mode_path, "system", "input");
+		if (rc == -1) {
+			free(cash_tof_enable_path);
+			free(sns_mode_path);
+			cash_tof_enable_path = NULL;
+			return rc;
 		}
 
-		fd = open(sns_mode_path, O_WRONLY);
-		if (fd < 0) {
-			ALOGD("Cannot open %s", sns_mode_path);
-			return 1;
-		}
-
-		rc = write(fd, VL53L0_HIGH_ACCURACY, 1);
-		if (rc < 1)
+		rc = cash_set_parameter(sns_mode_path, VL53L0_HIGH_ACCURACY,
+					sizeof(VL53L0_HIGH_ACCURACY) - 1);
+		if (rc < 0)
 			ALOGW("ERROR! Cannot set ToF High Accuracy mode!");
 
-		close(fd);
+		free(sns_mode_path);
 	}
 
+	/* Apply configurations from MiscTA */
+	if (calib_params == NULL) {
+		ALOGE("Calibration is not mandatory. Going on anyway.");
+		return 0;
+	}
+
+	buf = (char*)calloc(5, sizeof(char));
+	if (buf == NULL) {
+		ALOGE("Memory exhausted. Cannot allocate.");
+		return 0;
+	}
+
+	spad_calib_path = (char*)calloc(plen + LEN_REF_SPADS, sizeof(char));
+	if (spad_calib_path == NULL)
+		goto calib_err_mem;
+
+	snprintf(spad_calib_path, plen + LEN_REF_SPADS,
+		"%s%d/set_ref_spads", sysfs_input_str, devno);
+
+	rc = cash_set_permissions(spad_calib_path, "system", "input");
+	if (rc == -1) {
+		free(spad_calib_path);
+		goto calib_err;
+	}
+
+	cnt = snprintf(buf, 5, "%u", calib_params->tof_spad_num);
+
+	rc = cash_set_parameter(spad_calib_path, buf, (cnt * sizeof(char)));
+	if (rc < 0)
+		ALOGE("ERROR! Cannot set Reference SPADs!");
+	free(spad_calib_path);
+
+	um_offset_path = (char*)calloc(plen + LEN_UM_OFFSET, sizeof(char));
+	if (um_offset_path == NULL)
+		goto calib_err_mem;
+
+	snprintf(um_offset_path, plen + LEN_REF_SPADS,
+		"%s%d/set_um_offset", sysfs_input_str, devno);
+
+	rc = cash_set_permissions(um_offset_path, "system", "input");
+	if (rc == -1) {
+		free(um_offset_path);
+		goto calib_err;
+	}
+
+	cnt = snprintf(buf, 5, "%u", calib_params->tof_um_offset);
+
+	rc = cash_set_parameter(um_offset_path, buf, (cnt * sizeof(char)));
+	if (rc < 0)
+		ALOGE("ERROR! Cannot set micrometer offset!");
+	free(um_offset_path);
+
+	free(buf);
+	return 0;
+
+calib_err_mem:
+	ALOGE("Memory exhausted. Cannot allocate.");
+calib_err:
+	ALOGE("Calibration is not mandatory. Going on anyway.");
+	free(buf);
 	return 0;
 }
 
 /* TODO: Use IOCTL EVIOCGNAME as a waaaay better way */
-static int cash_find_inputdev(int maxdevs, int idev_len, char* idev_name)
+static int cash_find_inputdev(int maxdevs, int idev_len, char* idev_name,
+				struct cash_tamisc_calib_params *calib_params)
 {
 	int fd, plen, rlen, rc, i;
 	int plen_xtra = 3;
@@ -230,7 +274,8 @@ static int cash_find_inputdev(int maxdevs, int idev_len, char* idev_name)
 		if (rc == 0) {
 			close(fd);
 
-			rc = cash_tof_sys_init(VL53L0_HIGH_ACCURACY, i, plen);
+			rc = cash_tof_sys_init(VL53L0_HIGH_ACCURACY, i,
+							plen, calib_params);
 			if (rc < 0)
 				goto end;
 
@@ -567,7 +612,7 @@ bool cash_input_is_tof_alive(void)
 	return cash_thread_run[THREAD_TOF];
 }
 
-int cash_input_tof_init(void)
+int cash_input_tof_init(struct cash_tamisc_calib_params *calib_params)
 {
 	int dlen, evtno, rc;
 	char *devname, *devpath;
@@ -576,7 +621,8 @@ int cash_input_tof_init(void)
 	devname = (char*) calloc(dlen, sizeof(char));
 	snprintf(devname, dlen, "%s", VL53L0_STR);
 
-	evtno = cash_find_inputdev(ITERATE_MAX_DEVS, dlen, devname);
+	evtno = cash_find_inputdev(ITERATE_MAX_DEVS, dlen,
+					devname, calib_params);
 	if (evtno < 0)
 		return -1;
 

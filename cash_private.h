@@ -27,6 +27,16 @@
 #define CASHSERVER_TOF_CONF_FILE	"/vendor/etc/tof_focus_calibration.xml"
 #define CASHSERVER_RGBC_CONF_FILE	"/vendor/etc/cash_expcol_calibration.xml"
 
+#define CASHSERVER_DATASTORE_DIR	"/data/vendor/cashsvr/"
+#define CASHSERVER_CALDATA_FILE		CASHSERVER_DATASTORE_DIR "miscta_caldata.bin"
+
+#define CASHSERVER_LIB_TA		"libta.so"
+#define TA_UNIT_RGBCIR_CAPS1		4880
+#define TA_UNIT_RGBCIR_CAPS2		4881
+#define TA_UNIT_TOF_SPAD_NUM		4882
+#define TA_UNIT_TOF_SPAD_TYPE		4883
+#define TA_UNIT_TOF_UM_OFFSET		4884
+
 typedef enum {
 	OP_INITIALIZE = 0,
 	OP_TOF_START,
@@ -78,6 +88,14 @@ struct cash_params {
 	int32_t value;
 };
 
+struct cash_tamisc_calib_params {
+	uint16_t rgbcir_caps1[5];
+	uint16_t rgbcir_caps2[5];
+	uint32_t tof_um_offset;
+	uint32_t tof_spad_num;
+	uint8_t tof_spad_type;
+};
+
 struct cash_response {
 	bool retval;
 	int32_t focus_step;
@@ -92,6 +110,8 @@ int parse_cash_tof_xml_data(char* filepath, char* node,
 int parse_cash_rgbc_xml_data(char* filepath, char* node, 
 			struct cash_polyreg_params *cash_rgbc_clear_iso,
 			struct cash_configuration *cash_config);
+
+int cash_miscta_init_params(struct cash_tamisc_calib_params *conf);
 
 #define REPLY_FOCUS_CUSTOM_LEN		7
 #define REPLY_SHORT_FOCUS_LEN		2
