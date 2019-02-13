@@ -19,6 +19,9 @@
  * limitations under the License.
  */
 
+#include <sys/poll.h>
+#include <sys/epoll.h>
+
 #define ITERATE_MAX_DEVS	9
 
 enum thread_number {
@@ -51,4 +54,4 @@ static const char devfs_input_str[] = "/dev/input/event";
 
 int cash_input_threadman(bool start, struct thread_data *thread_data);
 int cash_set_parameter(char* path, char* value, int value_len);
-
+int cash_set_permissions(char* fpath, char* str_uid, char* str_gid);

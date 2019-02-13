@@ -1,6 +1,7 @@
 on post-fs-data
-    # create socket for cashsvr
+    # create socket and data directory for cashsvr
     mkdir /dev/socket/cashsvr 0755 system system
+    mkdir /data/vendor/cashsvr 0755 root system
 
 on property:sys.boot_completed=1
     start cashsvr

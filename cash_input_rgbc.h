@@ -31,5 +31,5 @@ struct cash_tcs3490 {
 int cash_rgbc_read_inst(struct cash_tcs3490 *tcsvl_final);
 int cash_input_rgbc_start(bool start);
 bool cash_input_is_rgbc_alive(void);
-int cash_input_rgbc_init(void);
+int cash_input_rgbc_init(struct cash_tamisc_calib_params *calib_params);
 

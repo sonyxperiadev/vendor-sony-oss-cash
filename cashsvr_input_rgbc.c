@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
 #include <linux/input.h>
 
 #include <cutils/android_filesystem_config.h>
@@ -119,25 +118,7 @@ end:
 
 static int cash_rgbc_sys_init(int devno, int plen)
 {
-	struct passwd *pwd;
-	struct passwd *grp;
-	uid_t uid;
-	gid_t gid;
-
-	// get system user and input group to call chown
-	pwd = getpwnam("system");
-	if (pwd == NULL) {
-		ALOGD("failed to get uid for system");
-		return 1;
-	}
-	uid = pwd->pw_uid;
-
-	grp = getpwnam("input");
-	if (grp == NULL) {
-		ALOGD("failed to get gid for input");
-		return 1;
-	}
-	gid = grp->pw_gid;
+	int rc = 0;
 
 	// allocate memory for all paths needed
 	rgbc_chip_power_path = (char*)calloc(plen + LEN_CHIP_POW, sizeof(char));
@@ -178,22 +159,12 @@ static int cash_rgbc_sys_init(int devno, int plen)
 
 	
 	// call chown on the paths to allow access after context switch
-	if (chown(rgbc_chip_power_path, uid, gid) == -1) {
-		ALOGD("Cannot chown %s", rgbc_chip_power_path);
-		return 1;
-	}
-	if (chown(rgbc_power_state_path, uid, gid) == -1) {
-		ALOGD("Cannot chown %s", rgbc_power_state_path);
-		return 1;
-	}
-	if (chown(rgbc_Itime_path, uid, gid) == -1) {
-		ALOGD("Cannot chown %s/als_Itime", rgbc_Itime_path);
-		return 1;
-	}
-	if (chown(rgbc_gain_path, uid, gid) == -1) {
-		ALOGD("Cannot chown %s/als_gain", rgbc_gain_path);
-		return 1;
-	}
+	rc = cash_set_permissions(rgbc_chip_power_path, "system", "input");
+	rc += cash_set_permissions(rgbc_power_state_path, "system", "input");
+	rc += cash_set_permissions(rgbc_Itime_path, "system", "input");
+	rc += cash_set_permissions(rgbc_gain_path, "system", "input");
+	if (rc < 0)
+		return rc;
 
 	return 0;
 }
@@ -389,7 +360,7 @@ bool cash_input_is_rgbc_alive(void)
 	return cash_thread_run[THREAD_RGBC];
 }
 
-int cash_input_rgbc_init(void)
+int cash_input_rgbc_init(__attribute__((unused))struct cash_tamisc_calib_params *calib_params)
 {
 	int dlen, evtno, rc;
 	char *devname, *devpath;

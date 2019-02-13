@@ -44,5 +44,5 @@ int cash_tof_thr_read_stabilized(
 	int runs, int nmatch, int sleep_ms, int hyst);
 int cash_input_tof_start(bool start);
 bool cash_input_is_tof_alive(void);
-int cash_input_tof_init(void);
+int cash_input_tof_init(struct cash_tamisc_calib_params *calib_params);
 

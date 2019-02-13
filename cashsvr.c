@@ -477,6 +477,7 @@ static int cash_clear_iso_get_coeff(void)
 int cashsvr_configure(void)
 {
         char propbuf[PROPERTY_VALUE_MAX];
+	struct cash_tamisc_calib_params calib_params;
 	int rc = 0;
 
 	cash_conf.tof_min = 0;
@@ -493,12 +494,18 @@ int cashsvr_configure(void)
 	cash_conf.rgbc_polyreg_extra = 0;
 	cash_conf.disable_rgbc = 0;
 
+	/*
+	 * Retrieve the calibration data either from MiscTA
+	 * or from CASH's calibration file
+	 */
+	cash_miscta_init_params(&calib_params);
+
 	rc = parse_cash_tof_xml_data(CASHSERVER_TOF_CONF_FILE, "tof_focus",
 				&focus_conf, &cash_conf);
 	if (rc < 0) {
 		ALOGE("Cannot parse configuration for ToF assisted AF");
 	} else {
-		rc = cash_input_tof_init();
+		rc = cash_input_tof_init(&calib_params);
 		if (rc < 0)
 			ALOGW("Cannot open ToF. Ranging will be unavailable");
 		cash_autofocus_get_coeff();
@@ -529,7 +536,7 @@ int cashsvr_configure(void)
 	if (rc < 0) {
 		ALOGE("Cannot parse configuration for RGBC assisted AE");
 	} else {
-		rc = cash_input_rgbc_init();
+		rc = cash_input_rgbc_init(&calib_params);
 		if (rc < 0)
 			ALOGW("Cannot open RGBC. Exposure control will be unavailable");
 		cash_clear_iso_get_coeff();
