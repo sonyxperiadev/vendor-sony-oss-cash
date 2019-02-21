@@ -34,7 +34,11 @@ int cash_input_threadman(bool start, struct thread_data *thread_data)
 	int thread_no = thread_data->thread_no;
 
 	if (start == false) {
+		static void *join_retval;  // Unused
+		/* Instruct thread to stop: */
 		cash_thread_run[thread_no] = false;
+		/* Wait until thread really exits: */
+		pthread_join(cash_pthreads[thread_no], join_retval);
 		return 0;
 	};
 
