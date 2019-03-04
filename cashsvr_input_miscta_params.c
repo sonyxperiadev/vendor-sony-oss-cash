@@ -117,13 +117,10 @@ static int cash_miscta_read_store_params(bool force)
 {
 	struct cash_tamisc_calib_params tacfg;
 	struct stat st = {0};
-	bool read_error = false, set_perm = false;
+	bool read_error = false;
 	int rc, fd, i;
 
-	/* Check if the file exists to eventually set the owner */
-	if (stat(CASHSERVER_CALDATA_FILE, &st) == -1) {
-		set_perm = true;
-	} else if (!force) {
+	if ((stat(CASHSERVER_CALDATA_FILE, &st) == 0) && (!force)) {
 		/* If file exists and not forcing re-read, just exit. */
 		return 0;
 	}
@@ -132,14 +129,6 @@ static int cash_miscta_read_store_params(bool force)
 	if (fd < 0) {
 		ALOGE("FATAL: Cannot open/create %s", CASHSERVER_CALDATA_FILE);
 		return -1;
-	}
-
-	if (set_perm) {
-		/* Set owner on the file, if it has been just created */
-		rc = cash_set_permissions(CASHSERVER_CALDATA_FILE,
-						"system", "input");
-		if (rc == -1)
-			return -1;
 	}
 
 	/* Wire up the function pointers */
