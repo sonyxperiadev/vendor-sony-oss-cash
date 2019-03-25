@@ -516,7 +516,7 @@ int cashsvr_configure(void)
 	 * a single reading of the ToF distance measurement and
 	 * instantly trust it if this configuration is zero.
 	 */
-        property_get("persist.cash.tof.stabilized", propbuf, "0");
+        property_get("persist.vendor.cash.tof.stabilized", propbuf, "0");
 	if (atoi(propbuf) > 0)
 		cash_conf.use_tof_stabilized = 1;
 
@@ -524,7 +524,7 @@ int cashsvr_configure(void)
 	 * Disable ToF functionality if this configuration
 	 * option is 1.
 	 */
-        property_get("persist.cash.tof.disable", propbuf, "0");
+        property_get("persist.vendor.cash.tof.disable", propbuf, "0");
 	if (atoi(propbuf) > 0)
 		cash_conf.disable_tof = 1;
 
@@ -546,7 +546,7 @@ int cashsvr_configure(void)
 	 * Disable RGBC functionality if this configuration
 	 * option is 1.
 	 */
-        property_get("persist.cash.rgbc.disable", propbuf, "0");
+        property_get("persist.vendor.cash.rgbc.disable", propbuf, "0");
 	if (atoi(propbuf) > 0)
 		cash_conf.disable_rgbc = 1;
 
