@@ -4,9 +4,9 @@ on post-fs-data
     mkdir /data/vendor/cashsvr 0755 root system
 
 on property:sys.boot_completed=1
-    start cashsvr
+    start vendor.cashsvr
 
-service cashsvr /vendor/bin/cashsvr
+service vendor.cashsvr /vendor/bin/cashsvr
     class main
     user root
     group system input
