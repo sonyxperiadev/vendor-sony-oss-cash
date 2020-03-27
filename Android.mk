@@ -17,15 +17,10 @@ ifeq ($(PRODUCT_PLATFORM_SOD),true)
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_VENDOR_MODULE := true
-LOCAL_COPY_HEADERS_TO := cashsvr
-LOCAL_COPY_HEADERS := ./cash_ext.h
-include $(BUILD_COPY_HEADERS)
-
-include $(CLEAR_VARS)
 LOCAL_SRC_FILES := cashsvr.c cash_input_common.c cashsvr_input_tof.c cashsvr_input_rgbc.c expatparser.c
 LOCAL_SRC_FILES += cashsvr_input_miscta_params.c
 LOCAL_C_INCLUDES := external/expat/lib
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/include/cashsvr
 LOCAL_SHARED_LIBRARIES := liblog libcutils libexpat libpolyreg
 LOCAL_MODULE := cashsvr
 LOCAL_MODULE_TAGS := optional
@@ -36,6 +31,10 @@ include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
 LOCAL_HEADER_LIBRARIES := libhardware_headers
+# Export cash_ext.h to any module that links to libcashctl,
+# e.g. in vendor/qcom/opensource/camera
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/include/cashsvr
 LOCAL_SRC_FILES := cash_ctl.c
 LOCAL_SHARED_LIBRARIES := \
     liblog \
