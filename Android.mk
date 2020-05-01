@@ -33,7 +33,7 @@ include $(CLEAR_VARS)
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 # Export cash_ext.h to any module that links to libcashctl,
 # e.g. in vendor/qcom/opensource/camera
-LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/include/cashsvr
 LOCAL_SRC_FILES := cash_ctl.c
 LOCAL_SHARED_LIBRARIES := \
